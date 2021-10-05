@@ -1,0 +1,11 @@
+{
+  "name": "analysis-example-create-device",
+  "version": "1.0.0",
+  "main": "analysis.js",
+  "repository": "tago-io/analysis-example-createDevice",
+  "author": "Tago LLC",
+  "license": "MIT",
+  "dependencies": {
+    "@tago-io/sdk": "^10.0.5"
+  }
+}
