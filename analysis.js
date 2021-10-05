@@ -33,15 +33,20 @@ async function startAnalysis(context) {
   // Get info of profile
   const profile_info = await account.profiles.info(env.profile_id);
   // Send profile info to the context log, just to check the profile
-  context.log('Your Profile Info Is:',profile_info);
-  // Edit auto_scale = true all params
-  const result = await account.profiles.serviceEdit(env.profile_id,
-  {auto_scale:{analysis: true, data_records: true, input: true, output: true,sms:true, email: true}})
-  .catch((error) => {
-    throw error;
-  });
-  // Send results of the serviceEdit
-  context.log(result);
+  // context.log('Your Profile Info Is:',profile_info);
+  // Edit auto_scale = true all params7
+  const find_false = (Object.values(profile_info.auto_scale)).find(element => element === false);
+  context.log(Object.values(profile_info.auto_scale));
+  if(find_false === false){
+    const result = await account.profiles.serviceEdit(env.profile_id,
+    {auto_scale:{analysis: true, data_records: true, input: true, output: true,sms:true, email: true}})
+    .catch((error) => {
+      throw error;
+    });
+    // Send results of the serviceEdit
+    context.log(result);
+  }
+  context.log("Analysis Finish");
 }
 
-module.exports = new Analysis(startAnalysis,{ token: 'MY-ANALYSIS-TOKEN-HERE'});
+module.exports = new Analysis(startAnalysis,{ token: 'my-analysis-token'});
