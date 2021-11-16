@@ -6,6 +6,8 @@
   "author": "Tago LLC",
   "license": "MIT",
   "dependencies": {
-    "@tago-io/sdk": "^10.0.5"
+    "@tago-io/sdk": "^10.3.14",
+    "moment": "^2.29.1",
+    "moment-timezone": "^0.5.33"
   }
 }
