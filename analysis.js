@@ -202,9 +202,14 @@ async function auto_scale_email(profile_stats, profile_stats_lenght, limits, acc
 async function startAnalysis(context) {
   // Get the environment variables.
   const env = Utils.envToJson(context.environment);
-  if (!env.account_token) return context.log('Missing "account_token" environment variable');
-  else if (env.account_token.length !== 36) return context.log('Invalid "account_token" in the environment variable');
-  if (!env.profile_id) return context.log("Profile Id not found, please put the profile_id in Environment Variables on the analysis");
+  if (!env.account_token) {
+    return context.log('Missing "account_token" environment variable');
+  } else if (env.account_token.length !== 36) {
+    return context.log('Invalid "account_token" in the environment variable');
+  } else  if (!env.profile_id) {
+    return context.log("Profile Id not found, please put the profile_id in Environment Variables on the analysis");
+  }
+
   // Instance the Account class
   const account = new Account({ token: env.account_token });
   // Get info of profile
