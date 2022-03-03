@@ -71,6 +71,23 @@ function getAccountLimit(servicesLimit) {
   }, {});
 }
 
+/**
+ * Find the ID of the profile from the token being used.
+ * @param {string} account
+ * @param {string} token
+ * @returns {string | null} profile id
+ */
+async function getProfileIDByToken(account, token) {
+  const profiles = await account.profiles.list();
+  for (const profile of profiles) {
+    const [token_exist] = await account.profiles.tokenList(profile.id, { token });
+    if (token_exist) {
+      return profile.id
+    }
+  }
+  return false;
+}
+
 // The function myAnalysis will run when you execute your analysis
 async function myAnalysis(context) {
 
@@ -82,7 +99,10 @@ async function myAnalysis(context) {
 
   // Setup the account and get's the ID of the profile the account token belongs to.
   account = new Account({ token: environment.account_token });
-  const { id } = await account.info();
+  const id = await getProfileIDByToken(account, environment.account_token);
+  if (!id) {
+    return console.error('Profile not found for the account token in the environment variable');
+  }
 
   // Get the current subscriptions of our account for all the services.
   const { services: servicesLimit } = await account.billing.getSubscription();
