@@ -97,6 +97,10 @@ async function myAnalysis(context) {
     return;
   }
 
+  if (!environment.account_token || environment.account_token.length !== 36) {
+    return console.error('[ERROR] You must enter a valid account_token in the environment variable');
+  }
+
   // Setup the account and get's the ID of the profile the account token belongs to.
   account = new Account({ token: environment.account_token });
   const id = await getProfileIDByToken(account, environment.account_token);
@@ -159,7 +163,7 @@ async function myAnalysis(context) {
   if (profiles.length > 1) {
     // Make sure we realocate only what we just subscribed
     const amountToRealocate = Object.keys(accountLimit).reduce((final, key) => {
-      final[key] = accountLimit[key].limit - (autoScaleServices[key].limit || 0);
+      final[key] = accountLimit[key].limit - (autoScaleServices[key]?.limit || 0);
       return final;
     }, {});
     
