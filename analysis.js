@@ -54,7 +54,7 @@ async function checkAutoScale(type, current_value, limit, scale) {
     return;
   }
 
-  const service_billing = billing[type].find(x => x.amount > accountLimit[type]);
+  const service_billing = billing[type].find(x => x.amount > accountLimit[type].limit);
   return service_billing.amount;
 }
 
@@ -139,6 +139,7 @@ async function myAnalysis(context) {
 
   // Stop if no auto-scale needed
   if (!Object.keys(autoScaleServices).length) {
+    console.log('Services are okay, no auto-scaling needed.')
     return;
   }
 
