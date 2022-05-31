@@ -65,7 +65,7 @@ async function checkAutoScale(type, current_value, limit, scale) {
  */
 function getAccountLimit(servicesLimit) {
   return Object.keys(servicesLimit).reduce((result, key) => {
-    result[key] = servicesLimit[key].limit;
+    result[key] = servicesLimit[key];
 
     return result;
   }, {});
@@ -133,7 +133,7 @@ async function myAnalysis(context) {
 
     const result = await checkAutoScale(statistic_key, limit_used[statistic_key], limit[statistic_key], scale);
     if (result) {
-      autoScaleServices[statistic_key] = result;
+      autoScaleServices[statistic_key] = { limit: result };
     }
   }
 
@@ -158,7 +158,7 @@ async function myAnalysis(context) {
   if (profiles.length > 1) {
     // Make sure we realocate only what we just subscribed
     const amountToRealocate = Object.keys(accountLimit).reduce((final, key) => {
-      final[key] = accountLimit[key] - (autoScaleServices[key] || 0);
+      final[key] = accountLimit[key].limit - (autoScaleServices[key].limit || 0);
       return final;
     }, {});
     
