@@ -30,14 +30,9 @@
  * 3 - Enter Tokens tab.
  * 4 - Generate a new Token with Expires Never.
  * 5 - Press the Copy Button and place at the Environment Variables tab of this analysis.
-*/
+ */
 
-const { Analysis, Account, Utils } = require('@tago-io/sdk');
-
-// some common variables we use in all functions
-let account;
-let accountLimit;
-
+const { Analysis, Account, Utils } = require("@tago-io/sdk");
 
 /**
  * Check if service needs autoscaling
@@ -51,15 +46,15 @@ function checkAutoScale(currentUsage, allocated, scale) {
 }
 
 /**
- * 
- * @param {{amount: number}[]} serviceValues 
- * @param {number} accountLimit 
+ *
+ * @param {{amount: number}[]} serviceValues
+ * @param {number} accountLimit
  */
 function getNextTier(serviceValues, accountLimit) {
-  if(!accountLimit) {
+  if (!accountLimit) {
     return undefined;
   }
-  const nextValue = serviceValues.sort((a, b) => a.amount - b.amount).find(({amount}) => amount > accountLimit);
+  const nextValue = serviceValues.sort((a, b) => a.amount - b.amount).find(({ amount }) => amount > accountLimit);
 
   return nextValue?.amount || undefined;
 }
@@ -79,7 +74,7 @@ function getAccountLimit(servicesLimit) {
 
 /**
  * Find the ID of the profile from the token being used.
- * @param {string} account
+ * @param {Account} account
  * @param {string} token
  * @returns {string | null} profile id
  */
@@ -88,7 +83,7 @@ async function getProfileIDByToken(account, token) {
   for (const profile of profiles) {
     const [token_exist] = await account.profiles.tokenList(profile.id, { token });
     if (token_exist) {
-      return profile.id
+      return profile.id;
     }
   }
   return false;
@@ -107,7 +102,7 @@ async function calculateAutoScale(billing, limit, limit_used, accountLimit, envi
     }
 
     if (isNaN(scale)) {
-      console.log(`[ERROR] Ignoring ${statisticKey}, because the environment variable value is not a number.\n`);
+      console.error(`[ERROR] Ignoring ${statisticKey}, because the environment variable value is not a number.\n`);
       continue;
     }
 
@@ -117,7 +112,7 @@ async function calculateAutoScale(billing, limit, limit_used, accountLimit, envi
       continue;
     }
 
-    const nextTier = getNextTier(billing[statisticKey], accountLimit[statisticKey]?.limit)
+    const nextTier = getNextTier(billing[statisticKey], accountLimit[statisticKey]?.limit);
     if (nextTier) {
       autoScaleServices[statisticKey] = { limit: nextTier };
     }
@@ -133,10 +128,13 @@ async function calculateAutoScale(billing, limit, limit_used, accountLimit, envi
 function reallocateProfiles(accountLimit, autoScaleServices, profileAllocation) {
   const newAllocation = {};
 
-  for(const service in autoScaleServices) {
-    const difference = autoScaleServices?.[service]?.limit - accountLimit?.[service]?.limit;
+  for (const service in autoScaleServices) {
+    const newAccountLimit = autoScaleServices?.[service]?.limit || 0;
+    const oldAccountLimit = accountLimit?.[service]?.limit || 0;
 
-    if(isNaN(difference) || difference <= 0) {
+    const difference = newAccountLimit - oldAccountLimit;
+
+    if (isNaN(difference) || difference <= 0) {
       continue;
     }
 
@@ -144,7 +142,7 @@ function reallocateProfiles(accountLimit, autoScaleServices, profileAllocation) 
 
     newAllocation[service] = difference + currentAllocation;
   }
-  
+
   if (!Object.keys(newAllocation).length) {
     return null;
   }
@@ -154,8 +152,8 @@ function reallocateProfiles(accountLimit, autoScaleServices, profileAllocation) 
 
 /**
  * Get the environment variables and parses it to a JSON
- * @param {*} context Analysis context 
- * @returns 
+ * @param {*} context Analysis context
+ * @returns
  */
 function setupEnvironment(context) {
   const environment = Utils.envToJson(context.environment);
@@ -164,7 +162,7 @@ function setupEnvironment(context) {
   }
 
   if (!environment.account_token || environment.account_token.length !== 36) {
-    return console.error('[ERROR] You must enter a valid account_token in the environment variable');
+    return console.error("[ERROR] You must enter a valid account_token in the environment variable");
   }
 
   return environment;
@@ -175,15 +173,15 @@ async function myAnalysis(context) {
   const environment = setupEnvironment(context);
 
   // Setup the account and get's the ID of the profile the account token belongs to.
-  account = new Account({ token: environment.account_token });
+  const account = new Account({ token: environment.account_token });
   const id = await getProfileIDByToken(account, environment.account_token);
   if (!id) {
-    return console.error('Profile not found for the account token in the environment variable');
+    return console.error("Profile not found for the account token in the environment variable");
   }
 
   // Get the current subscriptions of our account for all the services.
   const { services: servicesLimit } = await account.billing.getSubscription();
-  accountLimit = getAccountLimit(servicesLimit);
+  const accountLimit = getAccountLimit(servicesLimit);
 
   // get current limit and used resources of the profile.
   const { limit, limit_used } = await account.profiles.summary(id);
@@ -196,16 +194,21 @@ async function myAnalysis(context) {
 
   // Stop if no auto-scale needed
   if (!autoScaleServices) {
-    console.log('Services are okay, no auto-scaling needed.')
+    console.info("Services are okay, no auto-scaling needed.");
     return;
   }
 
-  console.log(`Auto-scaling the services: ${Object.keys(autoScaleServices).join(', ')}`);
+  console.info("Auto-scaling the services:");
+  for (const service in autoScaleServices) {
+    console.info(`${service} from ${accountLimit[service]} to ${autoScaleServices[service]}`);
+  }
 
   // Update our subscription, so we are actually scaling the account.
-  const billing_success = await account.billing.editSubscription({
-    services: autoScaleServices,
-  }).catch(e => console.log(`[ERROR] ${e.message || e}`));
+  const billing_success = await account.billing
+    .editSubscription({
+      services: autoScaleServices,
+    })
+    .catch((e) => console.error(`[ERROR] ${e.message || e}`));
 
   if (!billing_success) {
     return;
@@ -216,32 +219,36 @@ async function myAnalysis(context) {
   if (profiles.length > 1) {
     // Make sure we reallocate only what we just subscribed
     const amountToReallocate = reallocateProfiles(accountLimit, autoScaleServices, limit);
-    
-    if(amountToReallocate) {
-      // Allocate all the subscribed limit to the profile.
-      await account.billing.editAllocation([
-        {
-          profile: id,
-          ...amountToReallocate,
-        },
-      ]).catch(e => console.log(`[ERROR] ${e.message || e}`));
-    }
 
+    if (amountToReallocate) {
+      // Allocate all the subscribed limit to the profile.
+      await account.billing
+        .editAllocation([
+          {
+            profile: id,
+            ...amountToReallocate,
+          },
+        ])
+        .catch((e) => console.error(`[ERROR] ${e.message || e}`));
+    }
   }
 }
 
-// if(process.env.NODE_ENV === "test") {
-//   module.exports = { 
+// if (process.env.NODE_ENV === "test") {
+//   module.exports = {
 //     checkAutoScale,
 //     reallocateProfiles,
-//     calculateAutoScale
-//   }
+//     calculateAutoScale,
+//   };
 // } else {
 //   module.exports = new Analysis(myAnalysis);
 // }
 
-myAnalysis({environment: [
-  {key: "account_token", value: "2ae92425-61f7-4486-8509-af7ba452a674"},
-  {key: "input", value: 90}
-]}).then(console.log)
-.catch(console.error)
+myAnalysis({
+  environment: [
+    { key: "account_token", value: "2ae92425-61f7-4486-8509-af7ba452a674" },
+    { key: "input", value: 90 },
+  ],
+})
+  .then(console.info)
+  .catch(console.error);
