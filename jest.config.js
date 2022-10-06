@@ -6,9 +6,7 @@
 module.exports = {
   clearMocks: true,
 
-  coveragePathIgnorePatterns: [
-    "/node_modules/"
-  ],
+  coveragePathIgnorePatterns: ["/node_modules/"],
 
   coverageProvider: "v8",
 };

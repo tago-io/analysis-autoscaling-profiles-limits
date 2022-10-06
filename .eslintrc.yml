@@ -28,7 +28,7 @@ rules:
   "no-restricted-syntax": 0
   "no-restricted-globals": 0
   "no-console": [2, allow: ["warn", "info", "error"]]
-  "max-len": 0
+  "max-len": 2
   "jsx-a11y/href-no-hash": 0
   "jasmine/new-line-before-expect": 0
   "jasmine/new-line-between-declarations": 0
@@ -41,3 +41,4 @@ rules:
   "import/no-unresolved": 1
   "no-continue": 0
   "guard-for-in": 0
+  "semi": [2]

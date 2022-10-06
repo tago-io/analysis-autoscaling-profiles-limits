@@ -9,13 +9,16 @@
  *          https://admin.tago.io/template/62151212ec8d8f0012c52772
  *
  * In order to use this analysis, you must setup all the environment variables needed.
- * You're also required to create an Action of trigger type Schedule, and choose to run this analysis.
- * In the action you set how often you want to run this script to check your limits. It can set to a minimum of 1 minute.
+ * You're also required to create an Action of trigger type Schedule,
+ *  and choose to run this analysis.
+ * In the action you set how often you want to run this script to check your limits.
+ * It can set to a minimum of 1 minute.
  *
  * Environment Variables
  * In order to use this analysis, you must setup the Environment Variable table.
  *   account_token: Your account token. Check the steps at the end to understand how to generate it.
- *   input: 95. The 95 value will scale data input when it reach 95% of the usage. Keep it blank to not scale data input.
+ *   input: 95. The 95 value will scale data input when it reach 95% of the usage.
+ *     Keep it blank to not scale data input.
  *   output: 95
  *   data_records: 95
  *   analysis: 95
@@ -36,16 +39,22 @@ const { Analysis, Account, Utils } = require("@tago-io/sdk");
 
 /**
  * Check if service needs autoscaling
- * @param {number} current_value current usage of the profile
- * @param {number} limit limit of the profile
+ * @param {number} currentUsage current usage of the profile
+ * @param {number} allocated limit allocated of the profile
  * @param {number} scale percentage of usage to allow scaling up
  * @returns
  */
 function checkAutoScale(currentUsage, allocated, scale) {
-  return allocated * (scale * 0.01) <= currentUsage;
+  if (!scale || !allocated) {
+    return false;
+  }
+  const threshold = allocated * (scale * 0.01);
+
+  return threshold <= currentUsage;
 }
 
 /**
+ *  Get next valid service limit
  *
  * @param {{amount: number}[]} serviceValues
  * @param {number} accountLimit
@@ -54,7 +63,9 @@ function getNextTier(serviceValues, accountLimit) {
   if (!accountLimit) {
     return undefined;
   }
-  const nextValue = serviceValues.sort((a, b) => a.amount - b.amount).find(({ amount }) => amount > accountLimit);
+  const nextValue = serviceValues
+    .sort((a, b) => a.amount - b.amount)
+    .find(({ amount }) => amount > accountLimit);
 
   return nextValue?.amount || undefined;
 }
@@ -190,7 +201,13 @@ async function myAnalysis(context) {
   const billing = await account.billing.getPrices();
 
   // Check each service to see if it needs scaling
-  const autoScaleServices = await calculateAutoScale(billing, limit, limit_used, accountLimit, environment);
+  const autoScaleServices = await calculateAutoScale(
+    billing,
+    limit,
+    limit_used,
+    accountLimit,
+    environment,
+  );
 
   // Stop if no auto-scale needed
   if (!autoScaleServices) {
@@ -234,21 +251,22 @@ async function myAnalysis(context) {
   }
 }
 
-// if (process.env.NODE_ENV === "test") {
-//   module.exports = {
-//     checkAutoScale,
-//     reallocateProfiles,
-//     calculateAutoScale,
-//   };
-// } else {
-//   module.exports = new Analysis(myAnalysis);
-// }
+if (process.env.NODE_ENV === "test") {
+  module.exports = {
+    checkAutoScale,
+    reallocateProfiles,
+    calculateAutoScale,
+    getNextTier,
+  };
+} else {
+  module.exports = new Analysis(myAnalysis);
+}
 
-myAnalysis({
-  environment: [
-    { key: "account_token", value: "2ae92425-61f7-4486-8509-af7ba452a674" },
-    { key: "input", value: 90 },
-  ],
-})
-  .then(console.info)
-  .catch(console.error);
+// myAnalysis({
+//   environment: [
+//     { key: "account_token", value: "2ae92425-61f7-4486-8509-af7ba452a674" },
+//     { key: "input", value: 90 },
+//   ],
+// })
+//   .then(console.info)
+//   .catch(console.error);
