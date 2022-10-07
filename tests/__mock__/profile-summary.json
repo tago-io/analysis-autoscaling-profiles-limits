@@ -1,0 +1,24 @@
+{
+  "limit": {
+    "analysis": 100,
+    "data_records": 100,
+    "email": 100,
+    "input": 100,
+    "output": 100,
+    "sms": 100,
+    "run_users": 100,
+    "push_notification": 100,
+    "file_storage": 100
+  },
+  "limit_used": {
+    "input": 0,
+    "output": 0,
+    "analysis": 0,
+    "sms": 0,
+    "email": 0,
+    "data_records": 0,
+    "run_users": 0,
+    "push_notification": 0,
+    "file_storage": 0
+  }
+}

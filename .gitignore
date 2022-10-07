@@ -71,4 +71,9 @@ typings/
 
 # Serverless directories
 .serverless
+
+# MacOS
 .DS_Store
+
+# VSCode
+.vscode/launch.json

@@ -1,5 +1,6 @@
 {
     "cSpell.words": [
         "Tago"
-    ]
+    ],
+    "jest.jestCommandLine": "npm run test --"
 }

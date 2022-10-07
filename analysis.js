@@ -17,8 +17,9 @@
  * Environment Variables
  * In order to use this analysis, you must setup the Environment Variable table.
  *   account_token: Your account token. Check the steps at the end to understand how to generate it.
- *   input: 95. The 95 value will scale data input when it reach 95% of the usage.
- *     Keep it blank to not scale data input.
+ *   The 95 value will scale data input when it reach 95% of the usage.
+ *   Keep it blank to not scale data input.
+ *   input: 95
  *   output: 95
  *   data_records: 95
  *   analysis: 95
@@ -92,7 +93,9 @@ function getAccountLimit(servicesLimit) {
 async function getProfileIDByToken(account, token) {
   const profiles = await account.profiles.list();
   for (const profile of profiles) {
-    const [token_exist] = await account.profiles.tokenList(profile.id, { token });
+    const [token_exist] = await account.profiles.tokenList(profile.id, {
+      token,
+    });
     if (token_exist) {
       return profile.id;
     }
@@ -100,30 +103,55 @@ async function getProfileIDByToken(account, token) {
   return false;
 }
 
-async function calculateAutoScale(billing, limit, limit_used, accountLimit, environment) {
+/**
+ * Calculate services to be scaled
+ * @param {*} prices Service prices
+ * @param {*} profileLimit
+ * @param {*} profileLimitUsed
+ * @param {*} accountLimit
+ * @param {*} environment
+ * @returns
+ */
+function calculateAutoScale(
+  prices,
+  profileLimit,
+  profileLimitUsed,
+  accountLimit,
+  environment
+) {
   const autoScaleServices = {};
-  for (const statisticKey in limit) {
+  for (const statisticKey in profileLimit) {
     if (!environment[statisticKey]) {
       continue;
     }
 
     const scale = Number(environment[statisticKey]);
-    if (scale === 0) {
+    if (scale <= 0) {
       continue;
     }
 
     if (isNaN(scale)) {
-      console.error(`[ERROR] Ignoring ${statisticKey}, because the environment variable value is not a number.\n`);
+      console.error(
+        `[ERROR] Ignoring ${statisticKey}, because the environment variable value is not a number.\n`
+      );
       continue;
     }
 
-    const needAutoScale = checkAutoScale(limit_used[statisticKey], limit[statisticKey], scale);
+    const needAutoScale = checkAutoScale(
+      profileLimitUsed[statisticKey],
+      profileLimit[statisticKey],
+      scale
+    );
 
     if (!needAutoScale) {
       continue;
     }
 
-    const nextTier = getNextTier(billing[statisticKey], accountLimit[statisticKey]?.limit);
+    const nextTier = getNextTier(
+      prices[statisticKey],
+      accountLimit[statisticKey]?.limit
+    );
+
     if (nextTier) {
       autoScaleServices[statisticKey] = { limit: nextTier };
     }
@@ -136,7 +164,11 @@ async function calculateAutoScale(billing, limit, limit_used, accountLimit, envi
   return autoScaleServices;
 }
 
-function reallocateProfiles(accountLimit, autoScaleServices, profileAllocation) {
+function reallocateProfiles(
+  accountLimit,
+  autoScaleServices,
+  profileAllocation
+) {
   const newAllocation = {};
 
   for (const service in autoScaleServices) {
@@ -169,25 +201,25 @@ function reallocateProfiles(accountLimit, autoScaleServices, profileAllocation) 
 function setupEnvironment(context) {
   const environment = Utils.envToJson(context.environment);
   if (!environment) {
-    return;
+    return undefined;
   }
 
   if (!environment.account_token || environment.account_token.length !== 36) {
-    return console.error("[ERROR] You must enter a valid account_token in the environment variable");
+    throw "[ERROR] You must enter a valid account_token in the environment variable";
   }
 
   return environment;
 }
 
-// The function myAnalysis will run when you execute your analysis
-async function myAnalysis(context) {
+// This function will run when you execute your analysis
+async function start(context) {
   const environment = setupEnvironment(context);
 
   // Setup the account and get's the ID of the profile the account token belongs to.
   const account = new Account({ token: environment.account_token });
   const id = await getProfileIDByToken(account, environment.account_token);
   if (!id) {
-    return console.error("Profile not found for the account token in the environment variable");
+    throw "Profile not found for the account token in the environment variable";
   }
 
   // Get the current subscriptions of our account for all the services.
@@ -201,12 +233,12 @@ async function myAnalysis(context) {
   const billing = await account.billing.getPrices();
 
   // Check each service to see if it needs scaling
-  const autoScaleServices = await calculateAutoScale(
+  const autoScaleServices = calculateAutoScale(
     billing,
     limit,
     limit_used,
     accountLimit,
-    environment,
+    environment
   );
 
   // Stop if no auto-scale needed
@@ -217,15 +249,16 @@ async function myAnalysis(context) {
 
   console.info("Auto-scaling the services:");
   for (const service in autoScaleServices) {
-    console.info(`${service} from ${accountLimit[service]} to ${autoScaleServices[service]}`);
+    console.info(
+      `${service} from ${accountLimit[service]} to ${autoScaleServices[service]}`
+    );
   }
 
   // Update our subscription, so we are actually scaling the account.
   const billing_success = await account.billing
     .editSubscription({
       services: autoScaleServices,
-    })
-    .catch((e) => console.error(`[ERROR] ${e.message || e}`));
+    });
 
   if (!billing_success) {
     return;
@@ -235,7 +268,11 @@ async function myAnalysis(context) {
   const profiles = await account.profiles.list();
   if (profiles.length > 1) {
     // Make sure we reallocate only what we just subscribed
-    const amountToReallocate = reallocateProfiles(accountLimit, autoScaleServices, limit);
+    const amountToReallocate = reallocateProfiles(
+      accountLimit,
+      autoScaleServices,
+      limit
+    );
 
     if (amountToReallocate) {
       // Allocate all the subscribed limit to the profile.
@@ -245,28 +282,27 @@ async function myAnalysis(context) {
             profile: id,
             ...amountToReallocate,
           },
-        ])
-        .catch((e) => console.error(`[ERROR] ${e.message || e}`));
+        ]);
     }
   }
 }
 
+// Handler to start analysis
+async function myAnalysis(context) {
+  return start(context)
+    .then(() => console.info("Finished"))
+    .catch((error) => console.error("[ERROR] ", error?.message || error));
+}
+
+// ? Export functions to be tested
 if (process.env.NODE_ENV === "test") {
   module.exports = {
     checkAutoScale,
     reallocateProfiles,
     calculateAutoScale,
     getNextTier,
+    setupEnvironment,
   };
 } else {
   module.exports = new Analysis(myAnalysis);
 }
-
-// myAnalysis({
-//   environment: [
-//     { key: "account_token", value: "2ae92425-61f7-4486-8509-af7ba452a674" },
-//     { key: "input", value: 90 },
-//   ],
-// })
-//   .then(console.info)
-//   .catch(console.error);

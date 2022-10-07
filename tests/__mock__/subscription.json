@@ -1,0 +1,31 @@
+{
+  "services": {
+    "analysis": {
+      "limit": 3000
+    },
+    "data_records": {
+      "limit": 800000
+    },
+    "email": {
+      "limit": 100
+    },
+    "input": {
+      "limit": 1000000
+    },
+    "output": {
+      "limit": 3000000
+    },
+    "sms": {
+      "limit": 10
+    },
+    "run_users": {
+      "limit": 10
+    },
+    "push_notification": {
+      "limit": 100
+    },
+    "file_storage": {
+      "limit": 200
+    }
+  }
+}
