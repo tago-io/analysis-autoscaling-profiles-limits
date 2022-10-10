@@ -250,7 +250,7 @@ async function start(context) {
   console.info("Auto-scaling the services:");
   for (const service in autoScaleServices) {
     console.info(
-      `${service} from ${accountLimit[service]} to ${autoScaleServices[service]}`
+      `${service} from ${accountLimit?.[service]?.limit} to ${autoScaleServices?.[service]?.limit}`
     );
   }
 
@@ -267,6 +267,11 @@ async function start(context) {
   // Stop here if account has only one profile. No need to reallocate resources
   const profiles = await account.profiles.list();
   if (profiles.length > 1) {
+    // Wait purchase to be completed
+    await new Promise((resolve) => {
+      setTimeout(resolve, 2000);
+    });
+
     // Make sure we reallocate only what we just subscribed
     const amountToReallocate = reallocateProfiles(
       accountLimit,
@@ -274,7 +279,14 @@ async function start(context) {
       limit
     );
 
+    console.info("New allocation:");
     if (amountToReallocate) {
+      for (const service in amountToReallocate) {
+        console.info(
+          `${service} from ${limit?.[service]} to ${amountToReallocate?.[service]}`
+        );
+      }
+
       // Allocate all the subscribed limit to the profile.
       await account.billing
         .editAllocation([
