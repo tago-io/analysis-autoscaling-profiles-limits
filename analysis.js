@@ -212,7 +212,7 @@ function setupEnvironment(context) {
 }
 
 // This function will run when you execute your analysis
-async function start(context) {
+async function startAnalysis(context) {
   const environment = setupEnvironment(context);
 
   // Setup the account and get's the ID of the profile the account token belongs to.
@@ -299,13 +299,6 @@ async function start(context) {
   }
 }
 
-// Handler to start analysis
-async function myAnalysis(context) {
-  return start(context)
-    .then(() => console.info("Finished"))
-    .catch((error) => console.error("[ERROR] ", error?.message || error));
-}
-
 // ? Export functions to be tested
 if (process.env.NODE_ENV === "test") {
   module.exports = {
@@ -316,5 +309,8 @@ if (process.env.NODE_ENV === "test") {
     setupEnvironment,
   };
 } else {
-  module.exports = new Analysis(myAnalysis);
+  Analysis.use(startAnalysis);
+  
+  // To run analysis on your machine (external)
+  // Analysis.use(myAnalysis, { token: "YOUR-TOKEN" });
 }
